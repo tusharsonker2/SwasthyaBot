@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Web Project</title>
+  <style>body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f5f5f5;
+  color: #333;
+}
+header, footer {
+  background: #007BFF;
+  color: white;
+  text-align: center;
+  padding: 15px;
+}
+main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 20px;
+}
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+button {
+  margin-top: 10px;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  background: #28a745;
+  color: white;
+  cursor: pointer;
+}
+button:hover {
+  background: #218838;
+}
+
+/* Responsive for Tablets */
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Responsive for Mobile */
+@media (max-width: 600px) {
+  header h1 {
+    font-size: 1.2rem;
+  }
+  button {
+    width: 100%;
+  }
+}
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>Advanced Web Development Task</h1>
+  </header>
+
+  <main>
+    <!-- Quiz Section -->
+    <section id="quiz" class="card">
+      <h2>Quick Quiz</h2>
+      <div id="quiz-container"></div>
+      <button id="submitQuiz">Submit Quiz</button>
+      <p id="quizResult"></p>
+    </section>
+
+    <!-- API Data Section -->
+    <section id="apiData" class="card">
+      <h2>Random Joke</h2>
+      <p id="jokeText">Click the button to get a joke!</p>
+      <button id="getJoke">Get Joke</button>
+    </section>
+  </main>
+
+  <footer>
+    <p>Responsive Demo Footer</p>
+  </footer>
+
+  <script>
+    const quizData = [
+  {
+    question: "Which language is used for styling web pages?",
+    options: ["HTML", "CSS", "Python"],
+    correct: "CSS"
+  },/* 
+  {
+    question: "Which HTML tag is used to create a hyperlink?",
+    options: ["<link>", "<a>", "<href>"],
+    correct: "<a>"
+  }, */
+  {
+    question: "Which symbol is used for comments in JavaScript?",
+    options: ["//", "<!-- -->", "#"],
+    correct: "//"
+  }
+];
+
+const quizContainer = document.getElementById("quiz-container");
+const submitQuizBtn = document.getElementById("submitQuiz");
+const quizResult = document.getElementById("quizResult");
+
+// Render quiz questions
+function loadQuiz() {
+  quizContainer.innerHTML = "";
+  quizData.forEach((q, index) => {
+    const qElem = document.createElement("div");
+    qElem.innerHTML = `
+      <p><strong>${index + 1}. ${q.question}</strong></p>
+      ${q.options.map(opt => `
+        <label>
+          <input type="radio" name="q${index}" value="${opt}"> ${opt}
+        </label><br>
+      `).join("")}
+    `;
+    quizContainer.appendChild(qElem);
+  });
+}
+
+// Check answers
+submitQuizBtn.addEventListener("click", () => {
+  let score = 0;
+  quizData.forEach((q, index) => {
+    const selected = document.querySelector(`input[name="q${index}"]:checked`);
+    if (selected && selected.value === q.correct) {
+      score++;
+    }
+  });
+  quizResult.textContent = `You scored ${score} out of ${quizData.length}`;
+});
+
+loadQuiz();
+const jokeText = document.getElementById("jokeText");
+const getJokeBtn = document.getElementById("getJoke");
+
+getJokeBtn.addEventListener("click", async () => {
+  jokeText.textContent = "Loading joke...";
+  try {
+    const res = await fetch("https://v2.jokeapi.dev/joke/Any?type=single");
+    const data = await res.json();
+    jokeText.textContent = data.joke;
+  } catch (err) {
+    jokeText.textContent = "Failed to fetch joke.";
+  }
+});
+
+
+  </script>
+</body>
+</html>
