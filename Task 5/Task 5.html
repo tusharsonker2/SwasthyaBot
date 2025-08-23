@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Capstone Shop — Mini E-Commerce (Vanilla JS)</title>
+<meta name="description" content="Mini e-commerce demo: responsive, performant, lazy images, cart persistence." />
+<!-- Critical inline CSS (small) -->
+<style>
+  :root{--brand:#0b67ff;--muted:#6b7280;--card:#fff;--bg:#f5f7fb}
+  *{box-sizing:border-box}html,body{height:100%}body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:var(--bg);color:#222;-webkit-font-smoothing:antialiased}
+  header{background:linear-gradient(90deg,var(--brand),#0660d9);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:30}
+  .container{max-width:1100px;margin:0 auto;padding:16px}
+  .nav{display:flex;gap:12px;align-items:center;justify-content:space-between}
+  .nav .links{display:flex;gap:10px}
+  .btn{background:var(--brand);color:#fff;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
+  main{padding:18px 0}
+  .grid{display:grid;grid-template-columns:280px 1fr;gap:20px}
+  .card{background:var(--card);padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(12,20,40,.06)}
+  /* product grid */
+  .products{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .product{display:flex;flex-direction:column;gap:8px;border-radius:8px;overflow:hidden;background:#fff;padding:8px;border:1px solid #eef2f6}
+  .product img{width:100%;height:140px;object-fit:cover;border-radius:6px;background:#eee}
+  .product h4{margin:0;font-size:1rem}
+  .muted{color:var(--muted);font-size:.95rem}
+  .row{display:flex;gap:8px;align-items:center}
+  input[type="search"],select,input[type="number"]{width:100%;padding:8px;border-radius:8px;border:1px solid #e6e9f2;background:#fff}
+  /* cart */
+  .cart-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+  .cart-item{display:flex;gap:8px;align-items:center;justify-content:space-between}
+  .cart-item .left{display:flex;gap:8px;align-items:center}
+  .small{font-size:.85rem;color:var(--muted)}
+  footer{padding:18px;text-align:center;color:var(--muted)}
+  /* responsive */
+  @media (max-width:1000px){.grid{grid-template-columns:1fr}header .nav{flex-direction:column;align-items:flex-start} .product img{height:120px}}
+  @media (max-width:520px){.product img{height:100px}}
+</style>
+
+</head>
+<body>
+<header>
+  <div class="container nav">
+    <div>
+      <strong>Capstone Shop</strong>
+      <div class="small">Vanilla JS • Responsive • Optimized</div>
+    </div>
+    <div class="links">
+      <input id="search" type="search" placeholder="Search products..." aria-label="Search products" style="padding:8px;border-radius:8px;border:none;min-width:200px">
+      <button id="toggleCart" class="btn" aria-controls="cart" aria-expanded="false">Cart (<span id="cartCount">0</span>)</button>
+    </div>
+  </div>
+</header>
+
+<main class="container" id="app">
+  <div class="grid">
+    <!-- SIDEBAR: Filters & Checkout -->
+    <aside class="card" aria-labelledby="filtersTitle">
+      <h3 id="filtersTitle">Filters</h3>
+      <div style="margin-top:8px" class="small">Category</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <label class="small"><input type="checkbox" class="cat" value="electronics" checked> Electronics</label>
+        <label class="small"><input type="checkbox" class="cat" value="books" checked> Books</label>
+        <label class="small"><input type="checkbox" class="cat" value="clothing" checked> Clothing</label>
+      </div>
+
+      <div style="margin-top:12px" class="small">Price</div>
+      <select id="price" style="margin-top:8px">
+        <option value="all">All</option>
+        <option value="0-25">₹0 — ₹25</option>
+        <option value="25-60">₹25 — ₹60</option>
+        <option value="60-200">₹60 — ₹200</option>
+      </select>
+
+      <div style="margin-top:12px" class="small">Sort</div>
+      <select id="sort" style="margin-top:8px">
+        <option value="default">Featured</option>
+        <option value="price-asc">Price: Low → High</option>
+        <option value="price-desc">Price: High → Low</option>
+        <option value="rating-desc">Rating: High → Low</option>
+      </select>
+
+      <hr style="margin:12px 0;border:none;border-top:1px solid #eef2f6">
+
+      <h4 style="margin:0 0 8px 0">Cart</h4>
+      <ul id="cart" class="cart-list small" aria-live="polite"></ul>
+      <div class="row" style="margin-top:10px">
+        <div style="flex:1"><strong>Total:</strong> ₹<span id="total">0.00</span></div>
+        <button id="checkoutBtn" class="btn">Checkout</button>
+      </div>
+    </aside>
+
+    <!-- MAIN: Product area -->
+    <section>
+      <div class="row" style="align-items:flex-end;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <h2 style="margin:0">Products</h2>
+          <div class="small" id="resultsInfo" style="margin-top:4px">Showing all products</div>
+        </div>
+        <div class="small muted">Tip: images are lazy loaded for performance</div>
+      </div>
+
+      <div id="products" class="products card" aria-live="polite" aria-label="Product listing"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="small">Test across Chrome/Firefox/Safari & mobile. Built with accessible HTML, lazy images, and localStorage persistence.</div>
+</footer>
+
+<!-- Minimal JS (deferred behavior) -->
+<script>
+(function(){
+  'use strict';
+
+  // ---------- DATA (small sample) ----------
+        const PRODUCTS = [
+            { id: 1, name: 'Wireless Headphones', category: 'electronics', price: 3999, rating: 4.3, img: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop' },
+            { id: 2, name: 'JavaScript Book', category: 'books', price: 199.00, rating: 4.7, img: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&h=300&fit=crop' },
+            { id: 3, name: 'T-Shirt (Blue)', category: 'clothing', price: 1499, rating: 4.1, img: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=300&fit=crop' },
+            { id: 4, name: 'Smart Watch', category: 'electronics', price: 899, rating: 4.6, img: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=400&h=300&fit=crop' },
+            { id: 5, name: 'Novel: Mystery', category: 'books', price: 125, rating: 4.0, img: 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=400&h=300&fit=crop' },
+            { id: 6, name: 'Jeans', category: 'clothing', price: 499, rating: 4.2, img: 'https://xcdn.next.co.uk/common/items/default/default/itemimages/3_4Ratio/product/lge/530205s6.jpg?im=Resize,width=750' },
+            { id: 7, name: 'Bluetooth Speaker', category: 'electronics', price: 249, rating: 4.4, img: 'https://m.media-amazon.com/images/I/81StsX9GcTL.jpg' },
+            { id: 8, name: 'Cookbook', category: 'books', price: 220, rating: 4.5, img: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400&h=300&fit=crop' }
+        ];
+
+  // ---------- STATE ----------
+  let state = {
+    products: PRODUCTS.slice(),
+    cart: JSON.parse(localStorage.getItem('cap_cart_v1')||'[]'),
+    filters: {cats:new Set(['electronics','books','clothing']), price:'all', sort:'default', q:''}
+  };
+
+  // ---------- DOM refs ----------
+  const el = {
+    products: document.getElementById('products'),
+    cart: document.getElementById('cart'),
+    cartCount: document.getElementById('cartCount'),
+    total: document.getElementById('total'),
+    price: document.getElementById('price'),
+    sort: document.getElementById('sort'),
+    cats: Array.from(document.querySelectorAll('.cat')),
+    search: document.getElementById('search'),
+    resultsInfo: document.getElementById('resultsInfo'),
+    toggleCart: document.getElementById('toggleCart'),
+    checkoutBtn: document.getElementById('checkoutBtn')
+  };
+
+  // ---------- Utilities ----------
+  const format = n => Number(n).toFixed(2);
+  const saveCart = () => localStorage.setItem('cap_cart_v1', JSON.stringify(state.cart));
+  const findProduct = id => state.products.find(p=>p.id===id);
+
+  // ---------- Render products (efficient, innerHTML + template) ----------
+  function renderProducts(list){
+    if(!list.length){
+      el.products.innerHTML = '<div class="small muted card" style="padding:12px">No products match.</div>';
+      el.resultsInfo.textContent = 'No results';
+      return;
+    }
+    el.resultsInfo.textContent = `Showing ${list.length} product${list.length>1?'s':''}`;
+    // build html
+    let html = '';
+    for(const p of list){
+      // note: loading="lazy" helps browsers defer images until needed
+      html += `
+      <div class="product" data-id="${p.id}">
+        <img loading="lazy" alt="${p.name}" src="${p.img}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h4>${escapeHTML(p.name)}</h4>
+          <div class="small muted">${p.category}</div>
+        </div>
+        <div class="row" style="justify-content:space-between">
+          <div><strong>₹${format(p.price)}</strong></div>
+          <div class="small">⭐ ${p.rating}</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn add" data-id="${p.id}">Add to cart</button>
+          <button class="btn" data-id="${p.id}" style="background:#06a">View</button>
+        </div>
+      </div>`;
+    }
+    el.products.innerHTML = html;
+  }
+
+  // simple HTML escape to avoid injection
+  function escapeHTML(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  // ---------- Apply filters + sort + search ----------
+  function applyFilters(){
+    const cats = state.filters.cats;
+    const price = state.filters.price;
+    const q = state.filters.q.trim().toLowerCase();
+    let res = state.products.filter(p => cats.has(p.category));
+    if(price!=='all'){
+      const [min,max] = price.split('-').map(Number);
+      res = res.filter(p=>p.price>=min && p.price<=max);
+    }
+    if(q) res = res.filter(p=>p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+    // sort
+    const s = state.filters.sort;
+    if(s==='price-asc') res.sort((a,b)=>a.price-b.price);
+    else if(s==='price-desc') res.sort((a,b)=>b.price-a.price);
+    else if(s==='rating-desc') res.sort((a,b)=>b.rating-a.rating);
+    renderProducts(res);
+  }
+
+  // ---------- Cart functions ----------
+  function addToCart(id){
+    const existing = state.cart.find(it=>it.id===id);
+    if(existing) existing.qty++;
+    else state.cart.push({id,qty:1});
+    saveCart(); renderCart();
+    flashCartCount();
+  }
+
+  function removeFromCart(id){
+    const i = state.cart.findIndex(it=>it.id===id);
+    if(i!==-1) state.cart.splice(i,1);
+    saveCart(); renderCart();
+  }
+
+  function changeQty(id,qty){
+    const it = state.cart.find(x=>x.id===id);
+    if(!it) return;
+    it.qty = Math.max(1,qty|0);
+    saveCart(); renderCart();
+  }
+
+  function cartTotal(){
+    return state.cart.reduce((sum,it)=>{ const p=findProduct(it.id); return sum + (p ? p.price*it.qty : 0); },0);
+  }
+
+  function renderCart(){
+    if(!state.cart.length){
+      el.cart.innerHTML = '<li class="small muted">Cart is empty</li>';
+      el.cartCount.textContent = 0;
+      el.total.textContent = format(0);
+      return;
+    }
+    el.cart.innerHTML = state.cart.map(it=>{
+      const p = findProduct(it.id);
+      if(!p) return '';
+      return `<li class="cart-item">
+        <div class="left">
+          <div style="width:44px;height:44px;background:#eee;border-radius:6px;margin-right:8px"><img loading="lazy" alt="${p.name}" src="${p.img}" style="width:100%;height:100%;object-fit:cover;border-radius:6px"></div>
+          <div>
+            <div style="font-size:.95rem">${escapeHTML(p.name)}</div>
+            <div class="small muted">₹${format(p.price)} × ${it.qty}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" min="1" value="${it.qty}" data-id="${it.id}" class="cart-qty" style="width:64px;padding:6px;border-radius:6px;border:1px solid #eef2f6">
+          <button data-id="${it.id}" data-action="remove" style="background:#d33;color:#fff;padding:6px 8px;border-radius:6px;border:none;cursor:pointer">Remove</button>
+        </div>
+      </li>`;
+    }).join('');
+    el.cartCount.textContent = state.cart.reduce((s,i)=>s+i.qty,0);
+    el.total.textContent = format(cartTotal());
+    // attach qty listeners (delegation would be possible; simple attach here)
+    Array.from(document.querySelectorAll('.cart-qty')).forEach(inp=>{
+      inp.addEventListener('change', e=>{
+        const id=Number(inp.getAttribute('data-id')), q=Number(inp.value||1);
+        changeQty(id,q);
+      });
+    });
+    Array.from(el.cart.querySelectorAll('button[data-action="remove"]')).forEach(b=>b.addEventListener('click',()=>{
+      removeFromCart(Number(b.getAttribute('data-id')));
+    }));
+  }
+
+  // small flash animation for cart count
+  function flashCartCount(){
+    el.cartCount.animate([{transform:'scale(1)'},{transform:'scale(1.2)'},{transform:'scale(1)'}],{duration:300});
+  }
+
+  // ---------- Event delegation for product add buttons ----------
+  el.products.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button.add');
+    if(!btn) return;
+    const id = Number(btn.getAttribute('data-id'));
+    addToCart(id);
+  });
+
+  // ---------- Filters events ----------
+  el.cats.forEach(cb=>cb.addEventListener('change', ()=>{
+    state.filters.cats = new Set(el.cats.filter(c=>c.checked).map(c=>c.value));
+    applyFilters();
+  }));
+  el.price.addEventListener('change', ()=>{ state.filters.price = el.price.value; applyFilters(); });
+  el.sort.addEventListener('change', ()=>{ state.filters.sort = el.sort.value; applyFilters(); });
+
+  // ---------- Search with debounce ----------
+  let deb;
+  el.search.addEventListener('input', ()=>{
+    clearTimeout(deb);
+    deb = setTimeout(()=>{ state.filters.q = el.search.value; applyFilters(); }, 250);
+  });
+
+  // ---------- Toggle cart visibility (progressive) ----------
+  el.toggleCart.addEventListener('click', ()=>{
+    const isOpen = el.toggleCart.getAttribute('aria-expanded') === 'true';
+    el.toggleCart.setAttribute('aria-expanded', String(!isOpen));
+    // simple behavior: scroll to cart (sidebar)
+    document.querySelector('#cart').scrollIntoView({behavior:'smooth', block:'center'});
+  });
+
+  // ---------- Checkout (simulated) ----------
+  el.checkoutBtn.addEventListener('click', ()=>{
+    if(!state.cart.length) return alert('Cart is empty');
+    // Simulate processing: clear, save, show success
+    setTimeout(()=>{
+      state.cart = [];
+      saveCart();
+      renderCart();
+      alert('Order placed (simulation). Thank you!');
+    }, 400);
+  });
+
+  // ---------- Initialize UI ----------
+  function init(){
+    // performance: pre-filter/sort once then render
+    applyFilters();
+    renderCart();
+    // progressive enhancement: lazy-loading polyfill possibility omitted (modern browsers support loading="lazy")
+    // Accessibility: ensure important buttons are keyboard reachable
+  }
+
+  // ---------- Small helper to avoid XSS in injected attributes (already escaped above) ----------
+  // kick things off
+  init();
+
+  // expose for debugging (dev only)
+  window.__capstone = { state, applyFilters, addToCart, renderCart };
+
+})();
+</script>
+</body>
+</html>
